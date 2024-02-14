@@ -88,13 +88,43 @@ float GetDistanceByPos(float width, float height, float PosX, float PosY)
 {
     return sqrtf((width / 2 - PosX) * (width / 2 - PosX) + (height / 2 - PosY) * (height / 2 - PosY));
 }
+void bHop()
+{
+
+    while (true)
+    {
+        if (unLoadDLL)
+        {
+            return;
+		}
+        //Sleep(2);
+        uintptr_t m_localPawn = ReadMemory<DWORD64>((DWORD64)Client + client_dll::dwLocalPlayerPawn);
+        if (!m_localPawn)
+        {
+            continue;
+        }
+        BYTE m_fFlags = ReadMemory<BYTE>(m_localPawn + C_BaseEntity::m_fFlags);
+        if (GetAsyncKeyState(VK_SPACE))
+        {
+            if (m_fFlags & (1 << 0))
+            {
+                WriteMemory<int32_t>(Client + client_dll::dwForceJump, 65537);
+                Sleep(10);
+                WriteMemory<int32_t>(Client + client_dll::dwForceJump, 256);
+                Sleep(10);
+            }
+        }
+    }
+}
 
 void myFuction()
 {
+    HANDLE hBhopThread = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)bHop, NULL, NULL, NULL);
     EnumWindows(::EnumWindowsCallback, reinterpret_cast<LPARAM>(&g_hWnd));
     Client = GetClientModule();
     while (!unLoadDLL)
     {
+
         if (GetAsyncKeyState(VK_END))
         {
 			unLoadDLL = true;
@@ -137,8 +167,6 @@ void myFuction()
 
             }
         }
-
-
         RECT rect;
         GetWindowRect(g_hWnd, &rect);
         float width = rect.right - rect.left;
@@ -147,9 +175,12 @@ void myFuction()
         float dts;
         float maxd = 10000.f;
         DWORD64 AimPawn = 0;
+        DWORD64 m_localPlayer = ReadMemory<DWORD64>((DWORD64)Client + client_dll::dwLocalPlayerController);
+       
+        
         for (int i = 0; i < 32; i++)
         {
-            DWORD64 m_localPlayer = ReadMemory<DWORD64>((DWORD64)Client + client_dll::dwLocalPlayerController);
+            
             DWORD64 m_PlayerList = ReadMemory<DWORD64>((DWORD64)Client + client_dll::dwGameEntitySystem);
             if (!(m_PlayerList + 0x8 * ((i & 0x7FFF) >> 9) + 16))
                 continue;
@@ -328,15 +359,21 @@ void myFuction()
             }
         }
     }
-    if (SelfhModule)
-    {
-        FreeLibraryAndExitThread(SelfhModule, 0);
+    DWORD dwWaitResult = WaitForSingleObject(hBhopThread, INFINITE);
+    switch (dwWaitResult) {
+        case WAIT_OBJECT_0:
+            if (SelfhModule)
+            {
+                FreeLibraryAndExitThread(SelfhModule, 0);
+            }
+            else
+            {
+                ExitThread(0);
+            }
+            break;
+        case WAIT_FAILED:
+            break;
     }
-    else
-    {
-		ExitThread(0);
-	}
-
 }
 
 // DLL Entry Point
